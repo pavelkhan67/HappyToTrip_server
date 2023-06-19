@@ -151,9 +151,14 @@ async function run() {
 
         app.get("/search/:text", async (req, res) => {
             const text = req.params.text;
+            const regex = new RegExp(text, "i");
             const result = await hotelsCollection
                 .find({
-                    status: 'approved', name: { $regex: text, $options: "i" }
+                    status: "approved",
+                    $or: [
+                        { name: { $regex: regex } },
+                        { location: { $regex: regex } }
+                    ]
                 })
                 .toArray();
             res.send(result);
@@ -192,7 +197,7 @@ async function run() {
         app.patch('/bookings/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
-            const updateResult = await hotelsCollection.updateOne(query, { $inc: { booked: 1 } });
+            const updateResult = await hotelsCollection.updateOne(query, { $inc: { booked: 1, availableRoom: -1 } });
             res.send(updateResult);
         });
 
