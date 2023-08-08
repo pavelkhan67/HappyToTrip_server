@@ -1,9 +1,10 @@
 const express = require('express');
 const app = express();
+const SSLCommerzPayment = require('sslcommerz-lts')
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 require('dotenv').config()
-const stripe = require('stripe')(process.env.PAYMENT_SECRET_KEY)
+// const stripe = require('stripe')(process.env.PAYMENT_SECRET_KEY)
 const port = process.env.PORT || 5000;
 
 // middleware
@@ -41,6 +42,10 @@ const client = new MongoClient(uri, {
     useUnifiedTopology: true,
     maxPoolSize: 10,
 });
+
+const store_id = process.env.STORE_ID;
+const store_passwd = process.env.STORE_PASSWORD;
+const is_live = false; //true for live, false for sandbox
 
 async function run() {
     try {
@@ -193,6 +198,12 @@ async function run() {
             const result = await bookingCollection.deleteOne(query);
             res.send(result);
         })
+        app.get('/bookings/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await bookingCollection.findOne(query);
+            res.send(result);
+        })
 
         app.patch('/bookings/:id', async (req, res) => {
             const id = req.params.id;
@@ -251,22 +262,6 @@ async function run() {
             res.send(result);
         })
 
-        // create payment intent
-        app.post('/create-payment-intent', verifyJWT, async (req, res) => {
-            const { price } = req.body;
-            const amount = parseInt(price * 100);
-            const paymentIntent = await stripe.paymentIntents.create({
-                amount: amount,
-                currency: 'usd',
-                payment_method_types: ['card']
-            });
-
-            res.send({
-                clientSecret: paymentIntent.client_secret
-            })
-        })
-
-        // payment related api
         app.get('/payment', async (req, res) => {
             const email = req.query.email;
             if (!email) {
@@ -277,10 +272,88 @@ async function run() {
             res.send(result);
         })
 
-        app.post('/payment', verifyJWT, async (req, res) => {
-            const payment = req.body;
-            const insertResult = await paymentCollection.insertOne(payment);
-            res.send({ insertResult });
+        const transition_id = new ObjectId().toString();
+        app.post("/order", async (req, res) => {
+            const product = await bookingCollection.findOne({ _id: new ObjectId(req.body.productId), });
+            const order = req.body;
+            // console.log(order);
+            const data = {
+                total_amount: product?.price,
+                currency: order?.currency,
+                tran_id: transition_id, // use unique tran_id for each api call
+                success_url: `https://happytotrip.web.app/payment/success/${transition_id}`,
+                fail_url: 'http://localhost:3030/fail',
+                cancel_url: 'http://localhost:3030/cancel',
+                ipn_url: 'http://localhost:3030/ipn',
+                shipping_method: 'Courier',
+                product_name: product?.name,
+                product_category: product?.category,
+                product_profile: 'general',
+                cus_name: 'Customer Name',
+                cus_email: order.email,
+                cus_add1: order.address,
+                cus_add2: 'Dhaka',
+                cus_city: 'Dhaka',
+                cus_state: 'Dhaka',
+                cus_postcode: order.postCode,
+                cus_country: 'Bangladesh',
+                cus_phone: '01711111111',
+                cus_fax: '01711111111',
+                ship_name: 'Customer Name',
+                ship_add1: 'Dhaka',
+                ship_add2: 'Dhaka',
+                ship_city: 'Dhaka',
+                ship_state: 'Dhaka',
+                ship_postcode: 1000,
+                ship_country: 'Bangladesh',
+            };
+            // console.log(data);
+            const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
+            sslcz.init(data).then((apiResponse) => {
+                // Redirect the user to payment gateway
+
+                let GatewayPageURL = apiResponse.GatewayPageURL;
+                res.send({ url: GatewayPageURL });
+                // console.log(GatewayPageURL);
+                const finalOrder = {
+                    ...product,
+                    paidStatus: false,
+                    bookingDay: order.bookingDays,
+                    bookingDate: order.bookingDate,
+                    totalPrice: order.bookingDays*order.price,
+                    date: order.date,
+                    transactionId: transition_id,
+                  };
+                  const result = paymentCollection.insertOne(finalOrder);
+                });
+
+                app.post("/payment/success/:tranId", async (req, res) => {
+                    // console.log(req.params.tranId);
+                    const result = await paymentCollection.updateOne(
+                        { transactionId: req.params.tranId },
+                        {
+                            $set: {
+                                paidStatus: true,
+                            },
+                        }
+                    );
+                    if(result.modifiedCount>0){
+                        res.redirect(`https://happytotrip.web.app/payment/success/${req.params.tranId}`)
+                    }
+                });
+
+            });
+
+
+        // payment related api
+        app.get('/payment', async (req, res) => {
+            const email = req.query.email;
+            if (!email) {
+                res.send([]);
+            }
+            const query = { email: email };
+            const result = await paymentCollection.find(query).sort({ "date": -1 }).toArray();
+            res.send(result);
         })
 
         // Send a ping to confirm a successful connection
