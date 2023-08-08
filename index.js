@@ -273,7 +273,8 @@ async function run() {
         })
 
         const transition_id = new ObjectId().toString();
-        app.post("/order", async (req, res) => {
+        app.post("/hotel/order", async (req, res) => {
+            console.log(req.body);
             const product = await bookingCollection.findOne({ _id: new ObjectId(req.body.productId), });
             const order = req.body;
             // console.log(order);
@@ -314,35 +315,35 @@ async function run() {
 
                 let GatewayPageURL = apiResponse.GatewayPageURL;
                 res.send({ url: GatewayPageURL });
-                // console.log(GatewayPageURL);
+                console.log(GatewayPageURL);
                 const finalOrder = {
                     ...product,
                     paidStatus: false,
                     bookingDay: order.bookingDays,
                     bookingDate: order.bookingDate,
-                    totalPrice: order.bookingDays*order.price,
+                    totalPrice: order.bookingDays * order.price,
                     date: order.date,
                     transactionId: transition_id,
-                  };
-                  const result = paymentCollection.insertOne(finalOrder);
-                });
-
-                app.post("/payment/success/:tranId", async (req, res) => {
-                    // console.log(req.params.tranId);
-                    const result = await paymentCollection.updateOne(
-                        { transactionId: req.params.tranId },
-                        {
-                            $set: {
-                                paidStatus: true,
-                            },
-                        }
-                    );
-                    if(result.modifiedCount>0){
-                        res.redirect(`https://happytotrip.web.app/payment/success/${req.params.tranId}`)
-                    }
-                });
-
+                };
+                const result = paymentCollection.insertOne(finalOrder);
             });
+
+            app.post("/payment/success/:tranId", async (req, res) => {
+                console.log("sdgsdg",req.params);
+                const result = await paymentCollection.updateOne(
+                    { transactionId: req.params.tranId },
+                    {
+                        $set: {
+                            paidStatus: true,
+                        },
+                    }
+                );
+                if (result.modifiedCount > 0) {
+                    res.redirect(`https://happytotrip.web.app/payment/success/${req.params.tranId}`)
+                }
+            });
+
+        });
 
 
         // payment related api
