@@ -329,7 +329,7 @@ async function run() {
             });
 
             app.post("/payment/success/:tranId", async (req, res) => {
-                console.log("sdgsdg",req.params);
+                console.log(req.params.tranId);
                 const result = await paymentCollection.updateOne(
                     { transactionId: req.params.tranId },
                     {
