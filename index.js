@@ -282,7 +282,7 @@ async function run() {
                 total_amount: product?.price,
                 currency: order?.currency,
                 tran_id: transition_id, // use unique tran_id for each api call
-                success_url: `https://happy-to-trip-server.vercel.app/payment/success/${transition_id}`,
+                success_url: `https://happytotrip.web.app/payment/success/${transition_id}`,
                 fail_url: 'http://localhost:3030/fail',
                 cancel_url: 'http://localhost:3030/cancel',
                 ipn_url: 'http://localhost:3030/ipn',
