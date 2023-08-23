@@ -272,17 +272,17 @@ async function run() {
             res.send(result);
         })
 
-        const transition_id = new ObjectId().toString();
-        app.post("/hotel/order", async (req, res) => {
-            console.log(req.body);
+        app.post('/hotel/order', async (req, res) => {
+            // console.log(req.body);
             const product = await bookingCollection.findOne({ _id: new ObjectId(req.body.productId), });
             const order = req.body;
             // console.log(order);
+            const transition_id = new ObjectId().toString();
             const data = {
                 total_amount: product?.price,
                 currency: order?.currency,
                 tran_id: transition_id, // use unique tran_id for each api call
-                success_url: `https://happytotrip.web.app/payment/success/${transition_id}`,
+                success_url: `https://happy-to-trip-server.vercel.app/payment/success/${transition_id}`,
                 fail_url: 'http://localhost:3030/fail',
                 cancel_url: 'http://localhost:3030/cancel',
                 ipn_url: 'http://localhost:3030/ipn',
@@ -315,7 +315,7 @@ async function run() {
 
                 let GatewayPageURL = apiResponse.GatewayPageURL;
                 res.send({ url: GatewayPageURL });
-                console.log(GatewayPageURL);
+                // console.log(GatewayPageURL);
                 const finalOrder = {
                     ...product,
                     paidStatus: false,
@@ -328,23 +328,28 @@ async function run() {
                 const result = paymentCollection.insertOne(finalOrder);
             });
 
-            app.post("/payment/success/:tranId", async (req, res) => {
-                console.log(req.params.tranId);
-                const result = await paymentCollection.updateOne(
-                    { transactionId: req.params.tranId },
-                    {
-                        $set: {
-                            paidStatus: true,
-                        },
+            app.post('/payment/success/:tranId', async (req, res) => {
+                try {
+                    // console.log(req.params.tranId);
+                    const result = await paymentCollection.updateOne(
+                        { transactionId: req.params.tranId },
+                        {
+                            $set: {
+                                paidStatus: true,
+                            },
+                        }
+                    );
+                    if (result.modifiedCount > 0) {
+                        res.redirect(`https://happytotrip.web.app/payment/success/${req.params.tranId}`);
+                    } else {
+                        res.status(400).send("Update operation did not succeed.");
                     }
-                );
-                if (result.modifiedCount > 0) {
-                    res.redirect(`https://happytotrip.web.app/payment/success/${req.params.tranId}`)
+                } catch (error) {
+                    console.error("Error in /payment/success/:tranId:", error);
+                    res.status(500).send("An error occurred while processing the request.");
                 }
             });
-
         });
-
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
