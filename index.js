@@ -282,10 +282,10 @@ async function run() {
                 total_amount: product?.price,
                 currency: order?.currency,
                 tran_id: transition_id, // use unique tran_id for each api call
-                success_url: `https://happytotrip.web.app/payment/success/${transition_id}`,
-                fail_url: 'http://localhost:3030/fail',
-                cancel_url: 'http://localhost:3030/cancel',
-                ipn_url: 'http://localhost:3030/ipn',
+                success_url: `https://happy-to-trip-server.vercel.app/payment/success/${transition_id}`,
+                fail_url: 'https://localhost:3030/fail',
+                cancel_url: 'https://localhost:3030/cancel',
+                ipn_url: 'https://localhost:3030/ipn',
                 shipping_method: 'Courier',
                 product_name: product?.name,
                 product_category: product?.category,
@@ -340,7 +340,7 @@ async function run() {
                         }
                     );
                     if (result.modifiedCount > 0) {
-                        res.redirect(`https://happytotrip.web.app/payment/success/${req.params.tranId}`);
+                        res.redirect(`https://happytotrip.web.app/payment/done/${req.params.tranId}`);
                     } else {
                         res.status(400).send("Update operation did not succeed.");
                     }
